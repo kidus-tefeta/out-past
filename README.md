@@ -22,8 +22,12 @@ Apple, so it opens with no warning. On Windows the installer is not signed yet,
 so SmartScreen shows "Windows protected your PC": press More info, then Run
 anyway. One press installs it and puts Out Past on your desktop.
 
-KAI's voice, the good morning screen and the mission planner shown below are in
-the app but not in this first download yet. They land in the next release.
+On a new machine KAI greets you out loud and walks you in: Google, your name and
+north star, the hours you count as yours, then three short cards. It uses the
+voice already in your machine, so there is nothing to download.
+
+KAI's good morning screen and the mission week planner shown below are not in
+this download yet. They land in the next release.
 
 ## Screenshots
 
