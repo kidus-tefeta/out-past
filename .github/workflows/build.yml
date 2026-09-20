@@ -2,7 +2,8 @@ name: Build
 
 # Builds the Windows installer on a Windows runner. Run it from the Actions tab
 # (workflow_dispatch) or by pushing a version tag like v1.0.0. The installer is
-# uploaded as a build artifact.
+# uploaded as a build artifact, and put on the release when a tag was pushed or
+# a release tag was given, so people can download it with one press.
 #
 # The Mac build is done locally, not here: the Apple Intelligence engine (afm)
 # must be compiled on macOS 26+ with the FoundationModels SDK, which the hosted
@@ -11,9 +12,17 @@ name: Build
 
 on:
   workflow_dispatch:
+    inputs:
+      release:
+        description: Release tag to attach OutPast-Setup.exe to (empty to only build)
+        required: false
+        default: ''
   push:
     tags:
       - 'v*'
+
+permissions:
+  contents: write
 
 jobs:
   windows:
@@ -42,3 +51,11 @@ jobs:
             release/*.exe
             release/*.exe.blockmap
           if-no-files-found: error
+
+      - name: Put it on the release
+        if: ${{ inputs.release != '' || startsWith(github.ref, 'refs/tags/v') }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release != '' && inputs.release || github.ref_name }}
+        run: gh release upload "$TAG" release/OutPast-Setup.exe --clobber
