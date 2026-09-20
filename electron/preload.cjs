@@ -10,6 +10,11 @@ contextBridge.exposeInMainWorld('kd', {
     // or { answer: null } when neither is ready (caller falls back to the KB).
     local: (system, prompt) => ipcRenderer.invoke('ai:local', { system, prompt })
   },
+  // KAI's greeting, spoken by the voice already in the machine
+  voice: {
+    say: (text) => ipcRenderer.invoke('voice:say', text),
+    hush: () => ipcRenderer.invoke('voice:hush')
+  },
   auth: {
     status: () => ipcRenderer.invoke('auth:status'),
     login: () => ipcRenderer.invoke('auth:login'),

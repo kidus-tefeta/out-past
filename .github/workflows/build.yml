@@ -37,6 +37,19 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+
+      - name: Check Windows can speak
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Speech
+          $s = New-Object System.Speech.Synthesis.SpeechSynthesizer
+          $s.SetOutputToWaveFile("$PWD\\voice.wav")
+          $s.Speak("Welcome sir. Ready to outperform, outsmart, and out past.")
+          $s.Dispose()
+          $len = (Get-Item "$PWD\\voice.wav").Length
+          Write-Host "voice.wav $len bytes"
+          if ($len -lt 20000) { throw "the Windows voice produced nothing" }
+
       - name: Build Windows installer
         run: npm run build:win
         env:

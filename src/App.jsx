@@ -9,6 +9,7 @@ import Settings from './components/Settings.jsx'
 import Goals from './components/Goals.jsx'
 import { analyzeDay, analyzeRange, lastNDays, currentRun } from './lib/analysis.js'
 import Splash from './components/Splash.jsx'
+import Welcome from './components/Welcome.jsx'
 import CalendarView from './components/CalendarView.jsx'
 import FloatingGAI from './components/FloatingGAI.jsx'
 import Coach from './components/Coach.jsx'
@@ -68,6 +69,8 @@ const [dailyGoals, setDailyGoals] = useState(() => { try { const s=localStorage.
 const [storedCreds, setStoredCreds] = useState(null)
   const [now, setNow] = useState(new Date())
 const [splash, setSplash] = useState(true)
+/* the first run on this machine: KAI says hello out loud, then walks them in */
+const [welcomed, setWelcomed] = useState(() => { try { return localStorage.getItem('op_welcome_v1') === '1' } catch { return false } })
 const [theme, setTheme] = useState(() => { try { return localStorage.getItem('op5_theme') || 'light' } catch { return 'light' } })
 const [greeting, setGreeting] = useState(null)
 const [sleepData, setSleepData] = useState({ intervals: [], trackingStart: null })
@@ -515,6 +518,10 @@ const markWriteOk = useCallback(() => { try { localStorage.setItem('grow_cal_wri
   }, [events, now, sleepForAnalysis])
 
   if (!status) return <div className="center-screen">Loading…</div>
+  /* a new machine is greeted before it is asked anything */
+  if (!welcomed) {
+    return <Welcome status={status} onSaveCreds={handleSaveCreds} onLogin={handleLogin} onDone={() => setWelcomed(true)} />
+  }
 if (splash) return <Splash onDone={() => setSplash(false)} />
 
   if (!status.connected) {

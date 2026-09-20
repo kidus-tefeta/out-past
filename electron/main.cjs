@@ -146,7 +146,11 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      webviewTag: true
+      webviewTag: true,
+      // KAI greets a new machine out loud the moment the window opens, with
+      // nobody having clicked anything yet, so the window must be allowed to
+      // make sound on its own.
+      autoplayPolicy: 'no-user-gesture-required'
     }
   })
 
@@ -314,6 +318,36 @@ ipcMain.handle('creds:get', () => google.getCredentials())
 ipcMain.handle('creds:set', (_, creds) => google.saveCredentials(creds))
 // KAI local brain: Apple Intelligence, then a ~1GB Ollama model, else null so
 // the renderer answers from the Kidus Brain. No cloud, no key, no cost.
+// KAI SPEAKING THE GREETING.
+//
+// Electron ships no speech voices of its own, so the window cannot talk. The
+// machine can: macOS has `say` and Windows has the speech engine built into
+// .NET. Both are already there, so nothing is downloaded and nothing is
+// installed. Anything else (Linux, or a machine with speech turned off) simply
+// stays quiet and the greeting still reads on screen.
+let saying = null
+ipcMain.handle('voice:say', async (_, text) => {
+  const words = String(text || '').slice(0, 400)
+  if (!words.trim()) return { spoke: false }
+  try { if (saying) { saying.kill(); saying = null } } catch (e) {}
+  try {
+    if (process.platform === 'darwin') {
+      saying = spawn('say', ['-r', '178', words])
+    } else if (process.platform === 'win32') {
+      // single quotes are doubled so the sentence cannot break out of the string
+      const safe = words.replace(/'/g, "''")
+      saying = spawn('powershell.exe', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command',
+        `Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Rate = -1; $s.Speak('${safe}')`])
+    } else {
+      return { spoke: false }
+    }
+    saying.on('error', () => {})
+    return { spoke: true }
+  } catch (e) { return { spoke: false, error: String(e && e.message) } }
+})
+
+ipcMain.handle('voice:hush', async () => { try { if (saying) { saying.kill(); saying = null } } catch (e) {} return true })
+
 ipcMain.handle('ai:local', async (_, { system, prompt } = {}) => {
   try {
     const apple = await appleAnswer(system, prompt)
