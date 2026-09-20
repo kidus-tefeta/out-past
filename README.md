@@ -11,6 +11,14 @@ your own machine.
 
 ## Screenshots
 
+**Good morning — KAI opens the day, out loud**
+
+KAI greets you by name, names the mission and the week you are on, reads today's
+tasks, and offers a time for anything not on the calendar yet. It speaks on the
+machine, with no account and no key.
+
+![KAI's good morning: the orb, the greeting and today's tasks](docs/screenshots/morning.png)
+
 **KAI — talk to it, it plans and books your day**
 
 ![KAI](docs/screenshots/kai.png)
