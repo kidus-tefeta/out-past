@@ -1,4 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import VoiceOrb from './VoiceOrb.jsx'
+import { speak, playClip, hush as hushVoice, warm } from '../lib/kaivoice.js'
+import greeting from '../assets/greeting.m4a'
 
 // THE FIRST THING A NEW MACHINE SEES.
 //
@@ -8,9 +11,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 // self contained on purpose, its own styles and its own voice, so it never
 // fights the rest of the app.
 //
-// The voice is the one already in the machine (Windows and macOS both have
-// one), so there is nothing to download and nothing to install. If the machine
-// has no voice, or the person has muted it, every step still works in silence.
+// It speaks in KAI's own voice, the same one on a Mac and on Windows, and the
+// Clay Orb swells on the sound of it. The first time, before the voice has
+// been fetched, the machine's own voice says it instead, so nobody waits.
 
 const SAID = "Welcome sir. Ready to outperform, outsmart, and out past. Let's get to work."
 
@@ -18,51 +21,6 @@ const SAID = "Welcome sir. Ready to outperform, outsmart, and out past. Let's ge
 function line(name) {
   const who = name ? name.split(' ')[0] : 'sir'
   return `Welcome ${who}. Ready to outperform, outsmart, and out past. Let's get to work.`
-}
-
-function say(text, onEnd) {
-  // the machine's own voice first, through the main process: Electron itself
-  // ships none, so the window cannot talk on its own
-  try {
-    if (window.kd && window.kd.voice && window.kd.voice.say) {
-      let done = false
-      window.kd.voice.say(text).then((r) => {
-        if (r && r.spoke) {
-          // roughly how long that many words take to read out loud
-          const ms = Math.max(2200, Math.round(text.split(/\s+/).length * 400))
-          setTimeout(() => { if (!done) { done = true; onEnd && onEnd() } }, ms)
-        } else if (!done) { done = true; onEnd && onEnd() }
-      }).catch(() => { if (!done) { done = true; onEnd && onEnd() } })
-      return () => { done = true; try { window.kd.voice.hush() } catch (e) {} }
-    }
-  } catch (e) {}
-  try {
-    const synth = window.speechSynthesis
-    if (!synth || !(synth.getVoices() || []).length) { onEnd && onEnd(); return () => {} }
-    synth.cancel()
-    const u = new SpeechSynthesisUtterance(text)
-    // a calm, level read: this is a greeting, not an advert
-    u.rate = 0.94
-    u.pitch = 0.92
-    const voices = synth.getVoices() || []
-    // the best of what the machine already has, in order, then whatever is first
-    const want = ['Microsoft Guy', 'Microsoft Davis', 'Microsoft David', 'Daniel', 'Alex', 'Google UK English Male']
-    const pick = want.map(w => voices.find(v => v.name && v.name.indexOf(w) === 0)).find(Boolean)
-    if (pick) u.voice = pick
-    u.onend = () => onEnd && onEnd()
-    u.onerror = () => onEnd && onEnd()
-    synth.speak(u)
-    return () => { try { synth.cancel() } catch (e) {} }
-  } catch (e) { onEnd && onEnd(); return () => {} }
-}
-
-/* the ring that breathes while KAI talks */
-function Orb({ live }) {
-  return (
-    <div className={'w-orb' + (live ? ' live' : '')}>
-      <span /><span /><span />
-    </div>
-  )
 }
 
 export default function Welcome({ status, onSaveCreds, onLogin, onDone }) {
@@ -80,7 +38,7 @@ export default function Welcome({ status, onSaveCreds, onLogin, onDone }) {
   const [bed, setBed] = useState('23:00')
   const [sleep, setSleep] = useState('7')
   const [card, setCard] = useState(0)
-  const stop = useRef(null)
+  const [amp, setAmp] = useState(0)
 
   const words = line(name)
   const needsCreds = !status?.hasCredentials
@@ -95,19 +53,23 @@ export default function Welcome({ status, onSaveCreds, onLogin, onDone }) {
       setTyped(words.slice(0, i))
       if (i >= words.length) clearInterval(t)
     }, 42)
-    // voices load late in some builds, so wait for them once
-    stop.current = say(words, () => setTalking(false))
-    return () => { clearInterval(t); if (stop.current) stop.current() }
+    const done = () => { setAmp(0); setTalking(false) }
+    // the shipped greeting first, in KAI's own voice; if it cannot play, KAI
+    // says it instead, and if there is no voice at all it reads in silence
+    playClip(greeting, { onLevel: setAmp, onEnd: done }).then((ok) => {
+      if (!ok) speak(words, { onLevel: setAmp, onEnd: done })
+    })
+    return () => { clearInterval(t); hushVoice() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step])
+
+  /* the voice is fetched while they are reading, so the next line is KAI's own */
+  useEffect(() => { warm().catch(() => {}) }, [])
 
   /* if Google came back connected, move on by itself */
   useEffect(() => { if (step === 'google' && connected) setStep('you') }, [step, connected])
 
-  const hush = useCallback(() => {
-    try { if (window.kd && window.kd.voice) window.kd.voice.hush() } catch (e) {}
-    try { window.speechSynthesis && window.speechSynthesis.cancel() } catch (e) {}
-  }, [])
+  const hush = useCallback(() => { hushVoice(); setAmp(0) }, [])
 
   async function connect() {
     setError(''); setBusy(true)
@@ -158,6 +120,7 @@ export default function Welcome({ status, onSaveCreds, onLogin, onDone }) {
         .w-wrap{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;
           background:#ffffff;color:#12110f;padding:32px;overflow:auto}
         .w-mid{width:100%;max-width:620px;text-align:center}
+        .w-orbwrap{display:flex;justify-content:center}
         .w-say{font-size:clamp(28px,4.6vw,52px);font-weight:600;line-height:1.22;letter-spacing:-.02em;
           margin:34px 0 0;min-height:1.3em}
         .w-say b{font-weight:600;border-right:2px solid #12110f;animation:wcar 1s steps(1) infinite}
@@ -168,14 +131,6 @@ export default function Welcome({ status, onSaveCreds, onLogin, onDone }) {
           font-size:16px;font-weight:600;cursor:pointer;font-family:inherit}
         .w-btn[disabled]{opacity:.45;cursor:default}
         .w-btn.ghost{background:none;color:#6c6862;min-height:44px;padding:0 14px;font-weight:500;margin-left:6px}
-        .w-orb{position:relative;width:132px;height:132px;margin:0 auto}
-        .w-orb span{position:absolute;inset:0;border-radius:50%;border:1.5px solid rgba(18,17,15,.18)}
-        .w-orb span:nth-child(2){inset:14px;border-color:rgba(18,17,15,.30)}
-        .w-orb span:nth-child(3){inset:30px;background:#12110f;border:0}
-        .w-orb.live span{animation:wpulse 1.9s ease-in-out infinite}
-        .w-orb.live span:nth-child(2){animation-delay:.18s}
-        .w-orb.live span:nth-child(3){animation-delay:.36s}
-        @keyframes wpulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.07);opacity:.72}}
         .w-h{font-size:30px;font-weight:650;letter-spacing:-.02em;margin:26px 0 6px}
         .w-form{margin-top:26px;text-align:left}
         .w-f{margin-bottom:16px}
@@ -201,7 +156,7 @@ export default function Welcome({ status, onSaveCreds, onLogin, onDone }) {
       <div className="w-mid">
         {step === 'hello' && (
           <>
-            <Orb live={talking} />
+            <div className="w-orbwrap"><VoiceOrb size={132} amp={amp} active={talking} /></div>
             <p className="w-say">{typed}<b /></p>
             <p className="w-sub">Out Past runs on this machine. Your calendar, your work and KAI stay here.</p>
             <button className="w-btn" onClick={() => { hush(); setStep('google') }}>Let us get to work</button>
@@ -210,7 +165,7 @@ export default function Welcome({ status, onSaveCreds, onLogin, onDone }) {
 
         {step === 'google' && (
           <>
-            <Orb live={false} />
+            <div className="w-orbwrap"><VoiceOrb size={104} amp={0} active={false} /></div>
             <h2 className="w-h">Bring your calendar in</h2>
             <p className="w-sub">
               Out Past reads every Google calendar you have so it can show where your day really went.
