@@ -9,6 +9,22 @@ that **plans your week** and **fills your calendar** for you.
 Built with Electron + React + Vite. Free, open source, and the AI runs fully on
 your own machine.
 
+## Download
+
+| | |
+|---|---|
+| **Mac, Apple silicon** | [OutPast-Mac-AppleSilicon.dmg](https://github.com/kidus-tefeta/out-past/releases/latest/download/OutPast-Mac-AppleSilicon.dmg) |
+| **Mac, Intel** | [OutPast-Mac-Intel.dmg](https://github.com/kidus-tefeta/out-past/releases/latest/download/OutPast-Mac-Intel.dmg) |
+| **Windows** | [OutPast-Setup.exe](https://github.com/kidus-tefeta/out-past/releases/latest/download/OutPast-Setup.exe) |
+
+Open the .dmg and drag Out Past to Applications. It is signed and notarized by
+Apple, so it opens with no warning. On Windows the installer is not signed yet,
+so SmartScreen shows "Windows protected your PC": press More info, then Run
+anyway. One press installs it and puts Out Past on your desktop.
+
+KAI's voice, the good morning screen and the mission planner shown below are in
+the app but not in this first download yet. They land in the next release.
+
 ## Screenshots
 
 **Good morning — KAI opens the day, out loud**
