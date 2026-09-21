@@ -74,4 +74,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.release != '' && inputs.release || github.ref_name }}
-        run: gh release upload "$TAG" release/OutPast-Setup.exe --clobber
+        # a 1.2 GB upload sometimes answers 404 after it has actually landed,
+        # so the check is whether the file is on the release, not the exit code
+        run: |
+          gh release upload "$TAG" release/OutPast-Setup.exe --clobber || echo "upload reported an error, checking the release"
+          gh release view "$TAG" --json assets -q '.assets[].name' | grep -qx OutPast-Setup.exe
