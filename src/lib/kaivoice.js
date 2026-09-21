@@ -1,41 +1,21 @@
-// KAI'S VOICE, THE SAME ON EVERY MACHINE.
+// KAI'S VOICE.
 //
-// A Mac voice cannot leave a Mac and a Windows voice sounds nothing like one,
-// so a machine voice can never sound the same on both. This is one small
-// neural voice (Kokoro, 82M, about 80 MB) that runs on the person's own
-// machine, so Out Past sounds identical on a Mac and on Windows and nothing is
-// sent anywhere.
+// Nothing here goes near the internet, because the app promises it never does.
+// The greeting is the one line we always know in advance, so it is rendered in
+// KAI's neural voice while the app is being built and shipped inside it. It
+// sounds the same on a Mac and on Windows, and it starts the moment the window
+// opens.
 //
-// It is never in the way:
-//   first run  the machine's own voice speaks at once, and the model is
-//              fetched quietly in the background
-//   after that the neural voice, which the browser keeps cached
-//   no wifi    the machine voice, and if there is none, silence
+// Anything KAI makes up on the spot is spoken by the voice already in the
+// machine, macOS say or the Windows speech engine, through the main process,
+// because Electron ships no voice of its own. A machine with no voice at all
+// simply stays quiet and every word still reads on screen.
 //
 // While it speaks it reports the level of the sound, 0 to 1, so the Clay Orb
-// swells on KAI's actual voice rather than a timer.
+// swells on KAI's actual voice rather than on a timer.
 
-const MODEL = 'onnx-community/Kokoro-82M-v1.0-ONNX'
-const SRC = 'https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/+esm'
-const VOICE = 'am_michael'   // a level, low male read, the closest to the Mac voice
-
-let ttsPromise = null
-let tts = null
 let ctx = null
 let playing = null
-
-/* the model, loaded once and kept */
-export function warm() {
-  if (ttsPromise) return ttsPromise
-  ttsPromise = (async () => {
-    const { KokoroTTS } = await import(/* @vite-ignore */ SRC)
-    tts = await KokoroTTS.from_pretrained(MODEL, { dtype: 'q8', device: 'wasm' })
-    return tts
-  })().catch((e) => { ttsPromise = null; throw e })
-  return ttsPromise
-}
-
-export function ready() { return !!tts }
 
 /* the machine's own voice, through the main process */
 function machine(text) {
@@ -51,44 +31,20 @@ export function hush() {
   try { window.speechSynthesis && window.speechSynthesis.cancel() } catch (e) {}
 }
 
-/* one sentence at a time, so it starts talking as soon as the first is made */
-function sentences(text) {
-  return String(text).split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean)
-}
-
 // speak(text, { onLevel, onEnd })
 //   onLevel(0..1) fires while it talks, for the orb
 //   onEnd()       fires when the last word is out
-export async function speak(text, { onLevel, onEnd } = {}) {
+export function speak(text, { onLevel, onEnd } = {}) {
   hush()
   const done = () => { onLevel && onLevel(0); onEnd && onEnd() }
-
-  // nothing loaded yet: the machine speaks now, the model loads behind it
-  if (!tts) {
-    const spoke = machine(text)
-    warm().catch(() => {})
-    const ms = Math.max(2200, text.split(/\s+/).length * 400)
-    if (spoke) {
-      let t = 0
-      const tick = setInterval(() => { t += 0.12; onLevel && onLevel(0.35 + 0.22 * Math.sin(t * 5)) }, 90)
-      setTimeout(() => { clearInterval(tick); done() }, ms)
-    } else setTimeout(done, 600)
-    return
-  }
-
-  try {
-    const parts = sentences(text)
-    let first = null
-    for (const p of parts) {
-      const audio = await tts.generate(p, { voice: VOICE })
-      const blob = audio.toBlob()
-      if (!first) first = blob
-      await play(blob, onLevel)
-    }
-    done()
-  } catch (e) {
-    machine(text) ? setTimeout(done, Math.max(2200, text.split(/\s+/).length * 400)) : done()
-  }
+  const spoke = machine(text)
+  if (!spoke) { setTimeout(done, 600); return }
+  // the machine's voice gives nothing back to read, so the orb moves at a
+  // steady breath for about as long as those words take to say
+  const ms = Math.max(2200, text.split(/\s+/).length * 400)
+  let t = 0
+  const tick = setInterval(() => { t += 0.12; onLevel && onLevel(0.35 + 0.22 * Math.sin(t * 5)) }, 90)
+  setTimeout(() => { clearInterval(tick); done() }, ms)
 }
 
 // The greeting is the one line we always know in advance, so it is rendered in

@@ -67,6 +67,10 @@
         {
           "from": "build/afm",
           "to": "afm"
+        },
+        {
+          "from": "build/kai",
+          "to": "kai"
         }
       ]
     },
@@ -79,7 +83,13 @@
           ]
         }
       ],
-      "icon": "build/icon.ico"
+      "icon": "build/icon.ico",
+      "extraResources": [
+        {
+          "from": "build/kai",
+          "to": "kai"
+        }
+      ]
     },
     "nsis": {
       "oneClick": true,

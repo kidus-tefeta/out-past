@@ -115,6 +115,88 @@ async function ollamaAnswer(system, prompt) {
   } catch (e) { return null }
 }
 
+// KAI'S OWN BRAIN, INSIDE THE APP.
+//
+// Out Past ships with the model, so a machine with no Ollama, no key and no
+// wifi still has a mentor. It is Qwen 2.5 1.5B, quantised, run by the llama.cpp
+// engine that sits beside it in the app's own files. Both are put there at
+// build time by scripts/fetch-kai.mjs.
+//
+// The engine is only started the first time KAI is actually asked something,
+// so opening the app costs nothing, and it is shut down with the app.
+const KAI_PORT = 18711
+let kaiProc = null
+let kaiUp = null
+
+function kaiFiles() {
+  const dev = path.join(__dirname, '..', 'build', 'kai')
+  const packed = path.join(process.resourcesPath || '', 'kai')
+  const dir = fs.existsSync(path.join(packed, 'model.gguf')) ? packed : dev
+  const exe = path.join(dir, 'bin', process.platform === 'win32' ? 'llama-server.exe' : 'llama-server')
+  const model = path.join(dir, 'model.gguf')
+  return fs.existsSync(exe) && fs.existsSync(model) ? { exe, model, dir } : null
+}
+
+function kaiAsk(pathname, body, ms = 90000) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(body || {})
+    const req = http.request({ host: '127.0.0.1', port: KAI_PORT, path: pathname, method: body ? 'POST' : 'GET',
+      headers: body ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) } : {} },
+      (res) => {
+        let out = ''
+        res.on('data', (c) => { out += c })
+        res.on('end', () => { try { resolve(JSON.parse(out)) } catch (e) { resolve(null) } })
+      })
+    req.on('error', reject)
+    req.setTimeout(ms, () => { req.destroy(new Error('KAI timed out')) })
+    if (body) req.write(data)
+    req.end()
+  })
+}
+
+/* start it once, and hand every later caller the same wait */
+function kaiStart() {
+  if (kaiUp) return kaiUp
+  const f = kaiFiles()
+  if (!f) return Promise.resolve(false)
+  kaiUp = new Promise((resolve) => {
+    try {
+      kaiProc = spawn(f.exe, ['-m', f.model, '--port', String(KAI_PORT), '--host', '127.0.0.1',
+        '-c', '4096', '-ngl', '99', '--no-webui'], { cwd: f.dir, stdio: 'ignore' })
+      kaiProc.on('error', () => resolve(false))
+      kaiProc.on('exit', () => { kaiProc = null; kaiUp = null })
+    } catch (e) { return resolve(false) }
+    // it loads the model off disk, which takes a few seconds the first time
+    let tries = 0
+    const poke = async () => {
+      tries++
+      try { const h = await kaiAsk('/health', null, 4000); if (h && h.status === 'ok') return resolve(true) } catch (e) {}
+      if (tries > 60) return resolve(false)
+      setTimeout(poke, 1000)
+    }
+    setTimeout(poke, 800)
+  })
+  return kaiUp
+}
+
+async function kaiAnswer(system, prompt) {
+  if (!kaiFiles()) return null
+  const ok = await kaiStart()
+  if (!ok) return null
+  try {
+    const r = await kaiAsk('/v1/chat/completions', {
+      messages: [system ? { role: 'system', content: system } : null, { role: 'user', content: String(prompt || '') }].filter(Boolean),
+      max_tokens: 400, temperature: 0.4
+    })
+    const ans = r && r.choices && r.choices[0] && r.choices[0].message && r.choices[0].message.content
+    return (ans && ans.trim()) || null
+  } catch (e) { return null }
+}
+
+function kaiStop() { try { if (kaiProc) { kaiProc.kill(); kaiProc = null; kaiUp = null } } catch (e) {} }
+app.on('before-quit', kaiStop)
+app.on('will-quit', kaiStop)
+
 const isDev = process.env.ELECTRON_DEV === '1'
 let win = null
 
@@ -352,6 +434,9 @@ ipcMain.handle('ai:local', async (_, { system, prompt } = {}) => {
   try {
     const apple = await appleAnswer(system, prompt)
     if (apple) return { answer: apple, engine: 'apple' }
+    // the model that came with the app: no install, no wifi, nothing to set up
+    const mine = await kaiAnswer(system, prompt)
+    if (mine) return { answer: mine, engine: 'kai' }
     const oll = await ollamaAnswer(system, prompt)
     if (oll) return { answer: oll, engine: 'ollama' }
   } catch (e) {}

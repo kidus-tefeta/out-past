@@ -5,3 +5,8 @@ build/afm
 .DS_Store
 .env
 *.log
+
+# KAI's engine and model: fetched at build time by scripts/fetch-kai.mjs
+build/kai/
+build/afm
+build/stt

@@ -17,6 +17,9 @@ your own machine.
 | **Mac, Intel** | [OutPast-Mac-Intel.dmg](https://github.com/kidus-tefeta/out-past/releases/latest/download/OutPast-Mac-Intel.dmg) |
 | **Windows** | [OutPast-Setup.exe](https://github.com/kidus-tefeta/out-past/releases/latest/download/OutPast-Setup.exe) |
 
+KAI comes with it. The model is inside the download, so there is nothing to
+install, no account, no key and no wifi needed.
+
 Open the .dmg and drag Out Past to Applications. It is signed and notarized by
 Apple, so it opens with no warning. On Windows the installer is not signed yet,
 so SmartScreen shows "Windows protected your PC": press More info, then Run

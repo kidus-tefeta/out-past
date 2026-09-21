@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import VoiceOrb from './VoiceOrb.jsx'
-import { speak, playClip, hush as hushVoice, warm } from '../lib/kaivoice.js'
+import { speak, playClip, hush as hushVoice } from '../lib/kaivoice.js'
 import greeting from '../assets/greeting.m4a'
 
 // THE FIRST THING A NEW MACHINE SEES.
@@ -62,9 +62,6 @@ export default function Welcome({ status, onSaveCreds, onLogin, onDone }) {
     return () => { clearInterval(t); hushVoice() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step])
-
-  /* the voice is fetched while they are reading, so the next line is KAI's own */
-  useEffect(() => { warm().catch(() => {}) }, [])
 
   /* if Google came back connected, move on by itself */
   useEffect(() => { if (step === 'google' && connected) setStep('you') }, [step, connected])
