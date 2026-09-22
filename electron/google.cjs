@@ -14,9 +14,24 @@ const SCOPES = [
   'https://www.googleapis.com/auth/userinfo.profile'
 ]
 
-// ---- credentials (entered by the user in Settings) -------------------------
-function getCredentials() {
+// ---- credentials -----------------------------------------------------------
+// Out Past carries its own Google client, written into electron/google-client.json
+// by scripts/bake-google.cjs when the app is built. Google treats a Desktop app's
+// client as public (it ships inside every copy), so nobody who downloads Out Past
+// has to make a key of their own. A key somebody entered by hand still wins, so
+// anyone already signed in with their own stays signed in.
+function builtIn() {
+  try { return require('./google-client.json') } catch { return null }
+}
+/* only a key somebody typed in: Settings shows this, never the built in one */
+function ownCredentials() {
   return store.get('credentials', { clientId: '', clientSecret: '' })
+}
+function getCredentials() {
+  const own = ownCredentials()
+  if (own.clientId && own.clientSecret) return own
+  const b = builtIn()
+  return b && b.clientId && b.clientSecret ? b : own
 }
 function setCredentials(creds) {
   store.set('credentials', {
@@ -301,6 +316,7 @@ async function deleteEvent({ calendarId, id }) {
 
 module.exports = {
   getCredentials,
+  ownCredentials,
   setCredentials,
   hasCredentials,
   login,

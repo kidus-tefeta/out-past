@@ -396,7 +396,7 @@ app.on('window-all-closed', () => {
 ipcMain.handle('auth:status', () => google.status())
 ipcMain.handle('auth:login', () => google.login())
 ipcMain.handle('auth:logout', () => google.logout())
-ipcMain.handle('creds:get', () => google.getCredentials())
+ipcMain.handle('creds:get', () => google.ownCredentials())
 ipcMain.handle('creds:set', (_, creds) => google.saveCredentials(creds))
 // KAI local brain: Apple Intelligence, then a ~1GB Ollama model, else null so
 // the renderer answers from the Kidus Brain. No cloud, no key, no cost.

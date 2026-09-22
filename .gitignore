@@ -10,3 +10,6 @@ build/afm
 build/kai/
 build/afm
 build/stt
+
+# Out Past's own Google client, written at build time by scripts/bake-google.cjs
+electron/google-client.json
